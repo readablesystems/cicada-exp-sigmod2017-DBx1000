@@ -14,6 +14,12 @@
 #include "mem_alloc.h"
 // #include <unordered_set>
 
+static int64_t o_id_storage_[NUM_WH][DIST_PER_WARE];
+
+static inline int64_t* o_id_fast_gen(uint64_t d_id, uint64_t w_id) {
+    return &o_id_storage_[w_id - 1][d_id - 1];
+}
+
 void tpcc_txn_man::init(thread_t* h_thd, workload* h_wl, uint64_t thd_id) {
   txn_man::init(h_thd, h_wl, thd_id);
   _wl = (tpcc_wl*)h_wl;
@@ -25,6 +31,14 @@ void tpcc_txn_man::init(thread_t* h_thd, workload* h_wl, uint64_t thd_id) {
 #ifdef TPCC_DBX1000_SERIAL_DELIVERY
   memset(active_delivery, 0, sizeof(active_delivery));
 #endif
+
+  if (thd_id == 0) {
+    for (auto i = 0; i < NUM_WH; ++i) {
+      for (auto j = 0; j < DIST_PER_WARE; ++j) {
+        o_id_storage_[i][j] = 3001;
+      }
+    }
+  }
 }
 
 RC tpcc_txn_man::run_txn(base_query* query) {
@@ -342,22 +356,24 @@ row_t* tpcc_txn_man::new_order_getDistrict(uint64_t d_id, uint64_t d_w_id) {
   auto key = distKey(d_id, d_w_id);
   auto part_id = wh_to_part(d_w_id);
 #if !TPCC_CF
-  return search(index, key, part_id, WR);
+  return search(index, key, part_id, RD);
 #else
   const access_t cf_access_type[] = {PEEK, SKIP, WR};
   return search(index, key, part_id, SKIP, cf_access_type);
 #endif
 }
 
-void tpcc_txn_man::new_order_incrementNextOrderId(row_t* row,
+void tpcc_txn_man::new_order_incrementNextOrderId(uint64_t d_id, uint64_t d_w_id,
                                                   int64_t* out_o_id) {
   // UPDATE DISTRICT SET D_NEXT_O_ID = ? WHERE D_ID = ? AND D_W_ID = ?
   int64_t o_id;
-  row->get_value(D_NEXT_O_ID, o_id);
+  //row->get_value(D_NEXT_O_ID, o_id);
   // printf("%" PRIi64 "\n", o_id);
+  auto o_id_fast = o_id_fast_gen(d_id, d_w_id);
+  o_id = __sync_fetch_and_add(o_id_fast, 1);
   *out_o_id = o_id;
-  o_id++;
-  row->set_value(D_NEXT_O_ID, o_id);
+  //o_id++;
+  //row->set_value(D_NEXT_O_ID, o_id);
 }
 
 row_t* tpcc_txn_man::new_order_getCustomer(uint64_t w_id, uint64_t d_id,
@@ -555,27 +571,27 @@ RC tpcc_txn_man::run_new_order(tpcc_query* query) {
     FAIL_ON_ABORT();
     return finish(Abort);
   };
-  // double w_tax;
-  // warehouse->get_value(W_TAX, w_tax);
+  double w_tax;
+  warehouse->get_value(W_TAX, w_tax);
 
   auto district = new_order_getDistrict(arg.d_id, arg.w_id);
   if (district == NULL) {
     FAIL_ON_ABORT();
     return finish(Abort);
   };
-  // double d_tax;
-  // r_dist_local->get_value(D_TAX, d_tax);
+  double d_tax;
+  district->get_value(D_TAX, d_tax);
 
   int64_t o_id;
-  new_order_incrementNextOrderId(district, &o_id);
+  new_order_incrementNextOrderId(arg.d_id, arg.w_id, &o_id);
 
   auto customer = new_order_getCustomer(arg.w_id, arg.d_id, arg.c_id);
   if (customer == NULL) {
     FAIL_ON_ABORT();
     return finish(Abort);
   };
-// uint64_t c_discount;
-// customer->get_value(C_DISCOUNT, c_discount);
+  uint64_t c_discount;
+  customer->get_value(C_DISCOUNT, c_discount);
 
 #if TPCC_INSERT_ROWS
   uint64_t o_carrier_id = 0;

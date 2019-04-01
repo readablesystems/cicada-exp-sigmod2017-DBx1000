@@ -114,7 +114,7 @@ class tpcc_txn_man : public txn_man {
 
   row_t* new_order_getWarehouseTaxRate(uint64_t w_id);
   row_t* new_order_getDistrict(uint64_t d_id, uint64_t d_w_id);
-  void new_order_incrementNextOrderId(row_t* row, int64_t* out_o_id);
+  void new_order_incrementNextOrderId(uint64_t d_id, uint64_t d_w_id, int64_t* out_o_id);
   row_t* new_order_getCustomer(uint64_t w_id, uint64_t d_id, uint64_t c_id);
   bool new_order_createOrder(int64_t o_id, uint64_t d_id, uint64_t w_id,
                              uint64_t c_id, uint64_t o_entry_d,
