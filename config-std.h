@@ -19,6 +19,7 @@
 #define PRT_LAT_DISTR				false
 #define STATS_ENABLE				true
 #define TIME_ENABLE					false
+#define PROF_ENABLE					false
 
 #define MEM_ALLIGN					8
 

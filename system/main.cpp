@@ -20,6 +20,10 @@ void* f(void*);
 
 thread_t** m_thds;
 
+// defined in profiler.cpp
+pid_t profiler_start();
+bool profiler_stop(pid_t pid);
+
 // defined in parser.cpp
 void parser(int argc, char* argv[]);
 
@@ -243,9 +247,14 @@ int main(int argc, char* argv[]) {
     pthread_create(&p_thds[i], NULL, f, (void*)vid);
   }
   pthread_barrier_wait(&start_bar);
+  // start perf
+  auto prof_pid = profiler_start();
   int64_t starttime = get_server_clock();
   for (uint32_t i = 0; i < thd_cnt; i++) pthread_join(p_thds[i], NULL);
   int64_t endtime = get_server_clock();
+  // stop perf
+  bool ok = profiler_stop(prof_pid);
+  assert(ok);
 
   if (WORKLOAD != TEST) {
     printf("PASS! SimTime = %ld\n", endtime - starttime);
