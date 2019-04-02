@@ -1,5 +1,5 @@
 #CC=g++
-CC=g++-5
+CC=g++-7
 #CFLAGS=-Wall -g -std=c++0x
 CFLAGS=-Wall -g -std=c++14
 
