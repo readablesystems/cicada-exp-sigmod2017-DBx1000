@@ -14,7 +14,7 @@
 #include "mem_alloc.h"
 // #include <unordered_set>
 
-static int64_t o_id_storage_[NUM_WH][DIST_PER_WARE];
+extern int64_t o_id_storage_[NUM_WH][DIST_PER_WARE];
 
 static inline int64_t* o_id_fast_gen(uint64_t d_id, uint64_t w_id) {
     return &o_id_storage_[w_id - 1][d_id - 1];
@@ -31,14 +31,6 @@ void tpcc_txn_man::init(thread_t* h_thd, workload* h_wl, uint64_t thd_id) {
 #ifdef TPCC_DBX1000_SERIAL_DELIVERY
   memset(active_delivery, 0, sizeof(active_delivery));
 #endif
-
-  if (thd_id == 0) {
-    for (auto i = 0; i < NUM_WH; ++i) {
-      for (auto j = 0; j < DIST_PER_WARE; ++j) {
-        o_id_storage_[i][j] = 3001;
-      }
-    }
-  }
 }
 
 RC tpcc_txn_man::run_txn(base_query* query) {

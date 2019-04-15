@@ -17,6 +17,8 @@
 #include "tpcc_const.h"
 #include "catalog.h"
 
+int64_t o_id_storage_[NUM_WH][DIST_PER_WARE];
+
 RC tpcc_wl::init() {
   workload::init();
 
@@ -188,6 +190,9 @@ void tpcc_wl::init_tab_wh(uint32_t wid) {
 }
 
 void tpcc_wl::init_tab_dist(uint64_t wid) {
+  for (auto j = 0; j < DIST_PER_WARE; ++j) {
+    o_id_storage_[wid - 1][j] = 3001;
+  }
   for (uint64_t did = 1; did <= DIST_PER_WARE; did++) {
     row_t* row;
 #if CC_ALG == MICA
