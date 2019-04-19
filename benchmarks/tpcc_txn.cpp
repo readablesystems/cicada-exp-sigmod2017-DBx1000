@@ -31,10 +31,31 @@ void tpcc_txn_man::init(thread_t* h_thd, workload* h_wl, uint64_t thd_id) {
 #ifdef TPCC_DBX1000_SERIAL_DELIVERY
   memset(active_delivery, 0, sizeof(active_delivery));
 #endif
+
+#ifdef TPCC_DBX1000_DEFERRED_DELIVERY
+  memset(queued_delivery, 0, sizeof(queued_delivery));
+#endif
 }
 
 RC tpcc_txn_man::run_txn(base_query* query) {
   RC rc;
+
+#ifdef TPCC_DBX1000_DEFERRED_DELIVERY
+  auto thd_id = get_thd_id();
+  if ((thd_id < NUM_WH) && (queued_delivery[thd_id].queued != 0)) {
+#if CC_ALG == MICA
+    mica_tx->begin(false);
+#endif
+    rc = run_delivery(thd_id + 1);
+    if (rc == RCOK) {
+        INC_STATS_ALWAYS(thd_id, tpcc_delivery_commit, 1);
+        __sync_fetch_and_add(&queued_delivery[thd_id].queued, -1);
+    } else {
+        INC_STATS_ALWAYS(thd_id, tpcc_delivery_abort, 1);
+    }
+    return rc;
+  }
+#endif
 
   tpcc_query* m_query = (tpcc_query*)query;
   switch (m_query->type) {
@@ -70,15 +91,24 @@ RC tpcc_txn_man::run_txn(base_query* query) {
         INC_STATS_ALWAYS(get_thd_id(), tpcc_order_status_abort, 1);
       break;
     case TPCC_DELIVERY:
-#if CC_ALG == MICA
+#if CC_ALG == MICA && !defined(TPCC_DBX1000_DEFERRED_DELIVERY)
       mica_tx->begin(false);
 #endif
-      rc = run_delivery(m_query);
+#ifdef TPCC_DBX1000_DEFERRED_DELIVERY
+      {
+      auto q = &(queued_delivery[m_query->args.delivery.w_id - 1].queued);
+      __sync_fetch_and_add(q, 1);
+      rc = ENQUEUED;
+      break;
+      }
+#else
+      rc = run_delivery(m_query->args.delivery.w_id);
       if (rc == RCOK)
         INC_STATS_ALWAYS(get_thd_id(), tpcc_delivery_commit, 1);
       else
         INC_STATS_ALWAYS(get_thd_id(), tpcc_delivery_abort, 1);
       break;
+#endif
     case TPCC_STOCK_LEVEL:
 #if CC_ALG == MICA
       mica_tx->begin(true);
@@ -1002,13 +1032,12 @@ bool tpcc_txn_man::delivery_updateCustomer(double ol_total, uint64_t c_id,
   return true;
 }
 
-RC tpcc_txn_man::run_delivery(tpcc_query* query) {
+RC tpcc_txn_man::run_delivery(uint64_t w_id) {
 #if TPCC_FULL
-  auto& arg = query->args.delivery;
 
 // DBx1000's active delivery transaction checking.
 #ifdef TPCC_DBX1000_SERIAL_DELIVERY
-  if (__sync_lock_test_and_set(&active_delivery[arg.w_id - 1].lock, 1) == 1)
+  if (__sync_lock_test_and_set(&active_delivery[w_id - 1].lock, 1) == 1)
     return finish(RCOK);
 #endif
 
@@ -1020,11 +1049,11 @@ RC tpcc_txn_man::run_delivery(tpcc_query* query) {
 #endif
   {
     int64_t o_id;
-    if (!delivery_getNewOrder_deleteNewOrder(d_id, arg.w_id, &o_id)) {
+    if (!delivery_getNewOrder_deleteNewOrder(d_id, w_id, &o_id)) {
       // printf("oops0\n");
       FAIL_ON_ABORT();
 #ifdef TPCC_DBX1000_SERIAL_DELIVERY
-      __sync_lock_release(&active_delivery[arg.w_id - 1].lock);
+      __sync_lock_release(&active_delivery[w_id - 1].lock);
 #endif
       // INC_STATS_ALWAYS(get_thd_id(), debug1, 1);
       return finish(Abort);
@@ -1036,7 +1065,7 @@ RC tpcc_txn_man::run_delivery(tpcc_query* query) {
       continue;
     }
 
-    auto order = delivery_getCId(o_id, d_id, arg.w_id);
+    auto order = delivery_getCId(o_id, d_id, w_id);
     if (order == NULL) {
       // There is no guarantee that we will see a order row even after seeing a related new_order row in this read-write transaction.
       // printf("oops1\n");
@@ -1046,16 +1075,16 @@ RC tpcc_txn_man::run_delivery(tpcc_query* query) {
     uint64_t c_id;
     order->get_value(O_C_ID, c_id);
 
-    delivery_updateOrders(order, arg.o_carrier_id);
+    delivery_updateOrders(order, 0/*arg.o_carrier_id*/);
 
     double ol_total;
 #ifndef TPCC_CAVALIA_NO_OL_UPDATE
-    if (!delivery_updateOrderLine_sumOLAmount(arg.ol_delivery_d, o_id, d_id,
-                                              arg.w_id, &ol_total)) {
+    if (!delivery_updateOrderLine_sumOLAmount(0/*arg.ol_delivery_d*/, o_id, d_id,
+                                              w_id, &ol_total)) {
       // printf("oops2\n");
       FAIL_ON_ABORT();
 #ifdef TPCC_DBX1000_SERIAL_DELIVERY
-      __sync_lock_release(&active_delivery[arg.w_id - 1].lock);
+      __sync_lock_release(&active_delivery[w_id - 1].lock);
 #endif
       // INC_STATS_ALWAYS(get_thd_id(), debug2, 1);
       return finish(Abort);
@@ -1064,11 +1093,11 @@ RC tpcc_txn_man::run_delivery(tpcc_query* query) {
     ol_total = 1.;
 #endif
 
-    if (!delivery_updateCustomer(ol_total, c_id, d_id, arg.w_id)) {
+    if (!delivery_updateCustomer(ol_total, c_id, d_id, w_id)) {
       // printf("oops3\n");
       FAIL_ON_ABORT();
 #ifdef TPCC_DBX1000_SERIAL_DELIVERY
-      __sync_lock_release(&active_delivery[arg.w_id - 1].lock);
+      __sync_lock_release(&active_delivery[w_id - 1].lock);
 #endif
       // INC_STATS_ALWAYS(get_thd_id(), debug3, 1);
       return finish(Abort);
@@ -1078,7 +1107,7 @@ RC tpcc_txn_man::run_delivery(tpcc_query* query) {
   auto rc = finish(RCOK);
 // if (rc != RCOK) INC_STATS_ALWAYS(get_thd_id(), debug4, 1);
 #ifdef TPCC_DBX1000_SERIAL_DELIVERY
-  __sync_lock_release(&active_delivery[arg.w_id - 1].lock);
+  __sync_lock_release(&active_delivery[w_id - 1].lock);
 #endif
   return rc;
 

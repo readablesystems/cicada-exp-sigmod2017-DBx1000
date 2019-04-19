@@ -8,6 +8,8 @@ class table_t;
 class INDEX;
 class tpcc_query;
 
+#define TPCC_DBX1000_DEFERRED_DELIVERY
+
 // #define TPCC_SILO_REF_LAST_NO_O_IDS
 // #define TPCC_DBX1000_SERIAL_DELIVERY
 // #define TPCC_CAVALIA_NO_OL_UPDATE
@@ -79,7 +81,7 @@ class tpcc_txn_man : public txn_man {
   RC run_payment(tpcc_query* m_query);
   RC run_new_order(tpcc_query* m_query);
   RC run_order_status(tpcc_query* query);
-  RC run_delivery(tpcc_query* query);
+  RC run_delivery(uint64_t w_id);
   RC run_stock_level(tpcc_query* query);
 
 #ifdef TPCC_SILO_REF_LAST_NO_O_IDS
@@ -95,6 +97,14 @@ class tpcc_txn_man : public txn_man {
   } __attribute__((aligned(CL_SIZE)));
 
   ActiveDelivery active_delivery[NUM_WH];
+#endif
+
+#ifdef TPCC_DBX1000_DEFERRED_DELIVERY
+  struct QueuedDelivery {
+    uint64_t queued;
+  } __attribute__((aligned(CL_SIZE)));
+
+  QueuedDelivery queued_delivery[NUM_WH];
 #endif
 
   row_t* payment_getWarehouse(uint64_t w_id);

@@ -196,7 +196,7 @@ extern uint64_t g_max_orderline;
 // TATP
 extern uint64_t g_sub_size;
 
-enum RC { RCOK, Commit, Abort, WAIT, ERROR, FINISH};
+enum RC { RCOK, Commit, Abort, WAIT, ERROR, FINISH, ENQUEUED };
 
 /* Thread */
 typedef uint64_t txnid_t;

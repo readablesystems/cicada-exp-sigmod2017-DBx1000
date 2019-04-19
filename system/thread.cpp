@@ -277,6 +277,9 @@ RC thread_t::run() {
 			INC_STATS(get_thd_id(), abort_cnt, 1);
 			stats.abort(get_thd_id());
 			m_txn->abort_cnt ++;
+		} else if (rc == ENQUEUED) {
+			m_query = nullptr;
+			rc = RCOK;
 		}
 
 		if (rc == FINISH) {

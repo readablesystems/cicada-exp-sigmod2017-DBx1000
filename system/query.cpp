@@ -107,6 +107,8 @@ Query_thd::init(workload * h_wl, int thread_id) {
 
 base_query *
 Query_thd::get_next_query() {
+	static constexpr int request_cnt = WARMUP + MAX_TXN_PER_PART;
 	base_query * query = &queries[q_idx++];
+	if (q_idx >= request_cnt) { q_idx = WARMUP; }
 	return query;
 }
