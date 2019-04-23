@@ -226,10 +226,10 @@ void Stats::print(double sim_time) {
 		total_debug5  // / BILLION
 	);
 	if (WORKLOAD == TPCC) {
-		printf("[summary] payment      (%7ld, %7ld)\n",
-			total_tpcc_payment_commit, total_tpcc_payment_abort);
-		printf("[summary] new_order    (%7ld, %7ld)\n",
-			total_tpcc_new_order_commit, total_tpcc_new_order_abort);
+		printf("[summary] payment      (%7ld, %7ld, %.2f%%)\n",
+			total_tpcc_payment_commit, total_tpcc_payment_abort, 100.0* total_tpcc_payment_abort/(total_tpcc_payment_commit + total_tpcc_payment_abort));
+		printf("[summary] new_order    (%7ld, %7ld, %.2f%%)\n",
+			total_tpcc_new_order_commit, total_tpcc_new_order_abort, 100.0* total_tpcc_new_order_abort/(total_tpcc_new_order_commit + total_tpcc_new_order_abort));
 		printf("[summary] order_status (%7ld, %7ld)\n",
 		  total_tpcc_order_status_commit, total_tpcc_order_status_abort);
 		printf("[summary] delivery     (%7ld, %7ld)\n",
