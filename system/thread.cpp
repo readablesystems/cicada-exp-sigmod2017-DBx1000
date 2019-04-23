@@ -214,7 +214,7 @@ RC thread_t::run() {
 #endif
 
 #if CC_ALG != MICA && MICA_USE_FIXED_BACKOFF
-      uint64_t us = _wl->mica_sw.c_1_usec();
+			uint64_t us = _wl->mica_sw.c_1_usec();
 			double max_backoff_time = MICA_FIXED_BACKOFF * static_cast<double>(us);
 
 			double r;
@@ -231,13 +231,13 @@ RC thread_t::run() {
 		}
 
 #ifdef DISABLE_BUILTIN_BACKOFF
-	if (rc == RCOK && m_query != NULL) {
+		if (rc == RCOK && m_query != NULL) {
 #if WORKLOAD == TPCC && TPCC_SPLIT_DELIVERY
-		if (++m_query->sub_query_id != m_query->max_sub_query_id)
-			continue;
+			if (++m_query->sub_query_id != m_query->max_sub_query_id)
+				continue;
 #endif
-		m_query = nullptr;
-	}
+			m_query = nullptr;
+		}
 #endif
 
 #if WORKLOAD == TPCC && TPCC_SPLIT_DELIVERY
@@ -266,11 +266,11 @@ RC thread_t::run() {
 			txn_cnt ++;
 
 #if CC_ALG != MICA
-      ts_t now = get_server_clock();
-      if (last_commit_time != 0)
-        inter_commit_latency.update((now - last_commit_time) / 1000);
-      // printf("%" PRIu64 "\n", (now - last_commit_time) / 1000);
-      last_commit_time = now;
+			ts_t now = get_server_clock();
+			if (last_commit_time != 0)
+				inter_commit_latency.update((now - last_commit_time) / 1000);
+			// printf("%" PRIu64 "\n", (now - last_commit_time) / 1000);
+			last_commit_time = now;
 #endif
 		} else if (rc == Abort) {
 			// INC_STATS(get_thd_id(), time_abort, timespan);
@@ -284,31 +284,32 @@ RC thread_t::run() {
 
 		if (rc == FINISH) {
 #if CC_ALG == MICA
-    	_wl->mica_db->deactivate(static_cast<uint16_t>(get_thd_id()));
+			_wl->mica_db->deactivate(static_cast<uint16_t>(get_thd_id()));
 #endif
 			return rc;
-    }
+		}
 		// if (!warmup_finish && txn_cnt >= WARMUP / g_thread_cnt)
 		if (!warmup_finish && (txn_cnt >= WARMUP || static_cast<int64_t>(exp_endtime - get_server_clock()) <= 0))
 		{
 			stats.clear( get_thd_id() );
 #if CC_ALG == MICA
-    	_wl->mica_db->deactivate(static_cast<uint16_t>(get_thd_id()));
+			_wl->mica_db->deactivate(static_cast<uint16_t>(get_thd_id()));
 #endif
 			return FINISH;
 		}
 
-		if (warmup_finish && (txn_cnt >= MAX_TXN_PER_PART || static_cast<int64_t>(exp_endtime - get_server_clock()) <= 0)) {
+		if (warmup_finish && (static_cast<int64_t>(exp_endtime - get_server_clock()) <= 0)) {
 			// assert(txn_cnt == MAX_TXN_PER_PART);
-	        if( !ATOM_CAS(_wl->sim_done, false, true) )
+	        if( !ATOM_CAS(_wl->sim_done, false, true) ) {
 				assert( _wl->sim_done);
-	    }
-	    if (_wl->sim_done) {
+			}
+		}
+		if (_wl->sim_done) {
 #if CC_ALG == MICA
-        	_wl->mica_db->deactivate(static_cast<uint16_t>(get_thd_id()));
+			_wl->mica_db->deactivate(static_cast<uint16_t>(get_thd_id()));
 #endif
-   		    return FINISH;
-   		}
+			return FINISH;
+		}
 	}
 	assert(false);
 }
