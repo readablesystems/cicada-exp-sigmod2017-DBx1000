@@ -4,8 +4,8 @@
 /***********************************************/
 // Simulation + Hardware
 /***********************************************/
-#define THREAD_CNT 24
-#define PART_CNT 1
+#define THREAD_CNT 64
+#define PART_CNT 64
 // each transaction only accesses 1 virtual partition. But the lock/ts manager and index are not aware of such partitioning. VIRTUAL_PART_CNT describes the request distribution and is only used to generate queries. For HSTORE, VIRTUAL_PART_CNT should be the same as PART_CNT.
 #define VIRTUAL_PART_CNT			1
 #define PAGE_SIZE					4096
@@ -35,7 +35,7 @@
 
 // [RCU_ALLOC]
 #define RCU_ALLOC true
-#define RCU_ALLOC_SIZE 17007902720UL
+#define RCU_ALLOC_SIZE (32*(1UL << 30))
 
 /***********************************************/
 // Concurrency Control
@@ -138,12 +138,12 @@
 // are not modeled.
 #define TPCC_ACCESS_ALL 			true
 #define WH_UPDATE					true
-#define NUM_WH 1
+#define NUM_WH 64
 //
 #define TPCC_INSERT_ROWS true
-#define TPCC_DELETE_ROWS false
+#define TPCC_DELETE_ROWS true
 #define TPCC_INSERT_INDEX true
-#define TPCC_DELETE_INDEX false
+#define TPCC_DELETE_INDEX true
 // TPCC_FULL requires TPCC_INSERT_ROWS and TPCC_UPDATE_INDEX to fully function
 #define TPCC_FULL true
 #define TPCC_CF		  false
@@ -249,7 +249,7 @@ extern TestCases					g_test_case;
 #define TS_HW						3
 #define TS_CLOCK					4
 
-#define MICA_FULLINDEX false
+#define MICA_FULLINDEX true
 
 #define MICA_NO_TSC false
 #define MICA_NO_PRE_VALIDATION false
@@ -266,6 +266,6 @@ extern TestCases					g_test_case;
 #define MICA_USE_SLOW_GC false
 #define MICA_SLOW_GC 10
 
-#define PRINT_LAT_DIST true
+#define PRINT_LAT_DIST false
 
 #endif
